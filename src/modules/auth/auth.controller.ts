@@ -24,14 +24,11 @@ export class AuthController {
     @Query('lang') lang: string,
     @Headers('x-app') app: string,
   ) {
-    return {
-      code: 0,
-      data: await this.authService.register(
-        body.account,
-        body.password,
-        body.name,
-      ),
-    };
+    return await this.authService.register(
+      body.account,
+      body.password,
+      body.name,
+    );
   }
 
   /* 登入 */
@@ -42,10 +39,7 @@ export class AuthController {
     @Query('device') device: string,
     @Headers('x-app') app: string,
   ) {
-    return {
-      code: 0,
-      data: await this.authService.login(body.account, body.password),
-    };
+    return await this.authService.login(body.account, body.password);
   }
 
   /* JWT 驗證測試 */
@@ -53,7 +47,6 @@ export class AuthController {
   @Get('me')
   me(@Req() req: any) {
     return {
-      code: 0,
       data: {
         user: req.user,
       },

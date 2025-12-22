@@ -1,7 +1,8 @@
 import {
   Injectable,
   UnauthorizedException,
-  BadRequestException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -22,7 +23,7 @@ export class AuthService {
     // 1️⃣ 檢查帳號是否存在
     const exists = await this.userRepo.findOne({ where: { account } });
     if (exists) {
-      throw new BadRequestException('帳號已存在');
+      throw new HttpException('帳號已存在', HttpStatus.BAD_REQUEST);
     }
 
     // 2️⃣ 密碼加密

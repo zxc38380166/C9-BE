@@ -1,6 +1,8 @@
-import { NestFactory } from "@nestjs/core";
-import { AppModule } from "./app.module";
-import { ValidationPipe } from "@nestjs/common";
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+import { AllExceptionsFilter } from './common/http-exception.filter';
+import { SuccessResponseInterceptor } from './common/success-response.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -18,6 +20,9 @@ async function bootstrap() {
     origin: true,
     credentials: true,
   });
+
+  app.useGlobalFilters(new AllExceptionsFilter());
+  app.useGlobalInterceptors(new SuccessResponseInterceptor());
 
   await app.listen(process.env.PORT || 8080);
   console.log(`Your local URL is http://localhost:${process.env.PORT || 8080}`);
