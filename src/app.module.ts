@@ -4,10 +4,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { typeOrmConfig } from '../config/typeorm.config';
 import { AuthModule } from './modules/auth/auth.module';
-import { GameModule } from './modules/game/game.module';
 import { AuthService } from './modules/auth/auth.service';
 import { JwtStrategy } from './modules/auth/strategies/jwt.strategy';
 import { AuthUser } from './modules/auth/entities/auth-user.entity';
+import { GameModule } from './modules/game/game.module';
 
 @Module({
   imports: [
@@ -31,7 +31,6 @@ import { AuthUser } from './modules/auth/entities/auth-user.entity';
     AuthModule,
 
     GameModule,
-
   ],
   providers: [AuthService, JwtStrategy],
 })

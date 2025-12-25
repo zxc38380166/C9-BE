@@ -10,7 +10,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AuthUser]), // ✅ Entity 在這
+    TypeOrmModule.forFeature([AuthUser]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
