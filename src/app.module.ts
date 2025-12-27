@@ -8,6 +8,7 @@ import { AuthService } from './modules/auth/auth.service';
 import { JwtStrategy } from './modules/auth/strategies/jwt.strategy';
 import { AuthUser } from './modules/auth/entities/auth-user.entity';
 import { GameModule } from './modules/game/game.module';
+import { CommonModule } from './modules/common/common.module';
 
 @Module({
   imports: [
@@ -31,6 +32,8 @@ import { GameModule } from './modules/game/game.module';
     AuthModule,
 
     GameModule,
+
+    CommonModule,
   ],
   providers: [AuthService, JwtStrategy],
 })

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { GameProvider } from './entities/game-provider.entity';
 import { Repository } from 'typeorm';
+import enums from 'src/enum';
 
 @Injectable()
 export class GameService {
@@ -11,7 +12,7 @@ export class GameService {
   ) {}
 
   async getGameProvider(query) {
-    console.log(query, 'query');
+    console.log(enums, 'enums');
 
     return await this.gameProviderRep.find();
   }

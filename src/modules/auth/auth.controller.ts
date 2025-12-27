@@ -44,12 +44,8 @@ export class AuthController {
 
   /* JWT 驗證測試 */
   @UseGuards(JwtAuthGuard)
-  @Get('me')
-  me(@Req() req: any) {
-    return {
-      data: {
-        user: req.user,
-      },
-    };
+  @Get('user-detail')
+  async getUserDetail(@Req() req: any) {
+    return await this.authService.getUserDetail(req);
   }
 }

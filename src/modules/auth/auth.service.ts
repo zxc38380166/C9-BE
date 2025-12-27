@@ -83,4 +83,13 @@ export class AuthService {
       },
     };
   }
+
+  async getUserDetail(req) {
+    const user = await this.userRepo.findOne({
+      where: { account: req.user.account },
+      select: ['id', 'account', 'name', 'createdAt'],
+    });
+
+    return user;
+  }
 }
