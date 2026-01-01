@@ -16,6 +16,9 @@ export class GameProvider {
   @Column({ type: 'int' })
   gameType: number;
 
+  @Column({ type: 'text' })
+  gameKey: string;
+
   @Column({ type: 'tinyint', width: 1, default: 0 })
   regionalOpen: boolean;
 

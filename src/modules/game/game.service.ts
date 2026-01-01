@@ -13,7 +13,6 @@ export class GameService {
 
   async getGameProvider(query) {
     console.log(enums, 'enums');
-
     return await this.gameProviderRep.find();
   }
 }
