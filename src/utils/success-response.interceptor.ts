@@ -1,7 +1,7 @@
 export type ApiResponse<T = any> = {
   code: number; // 0=成功
   message: string; // 'ok'
-  data: T;
+  result: T;
   timestamp: number;
   path: string;
 };
@@ -37,7 +37,7 @@ export class SuccessResponseInterceptor implements NestInterceptor {
         const resBody: ApiResponse = {
           code: HttpStatus.OK,
           message: 'ok',
-          data: data ?? null,
+          result: data ?? null,
           timestamp: Date.now(),
           path: req.originalUrl || req.url,
         };
