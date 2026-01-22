@@ -12,6 +12,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import * as cookieParser from 'cookie-parser';
 
 @Controller('auth')
 export class AuthController {
@@ -45,7 +46,12 @@ export class AuthController {
   /* JWT 驗證測試 */
   @UseGuards(JwtAuthGuard)
   @Get('user-detail')
-  async getUserDetail(@Req() req: any) {
+  async getUserDetail(@Req() req) {
     return await this.authService.getUserDetail(req);
+  }
+
+  @Get('country-codes')
+  async getCountryCodes(@Req() req) {
+    return this.authService.getCountryCodes(req);
   }
 }
