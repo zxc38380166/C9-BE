@@ -4,6 +4,11 @@ import {
   Column,
   CreateDateColumn,
 } from 'typeorm';
+import type { Request as _Request } from 'express';
+
+export interface Request extends _Request {
+  user?: AuthUser;
+}
 
 @Entity('auth-user')
 export class AuthUser {
@@ -19,11 +24,12 @@ export class AuthUser {
   @Column({ type: 'varchar', length: 50 })
   name: string;
 
-  // ✅ 新增：信箱（字串）
   @Column({ unique: true, type: 'varchar', length: 254, nullable: true })
   email: string | null;
 
-  // ✅ 新增：手機（字串）
+  @Column({ type: 'varchar', length: 6, nullable: true })
+  emailVertifyCode: string | null;
+
   @Column({ unique: true, type: 'varchar', length: 20, nullable: true })
   mobile: string | null;
 

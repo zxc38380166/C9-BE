@@ -13,6 +13,8 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import * as cookieParser from 'cookie-parser';
+import { SendTestDto } from './dto/send-email-vertify.dto';
+import type { Request } from './entities/auth-user.entity';
 
 @Controller('auth')
 export class AuthController {
@@ -50,8 +52,21 @@ export class AuthController {
     return await this.authService.getUserDetail(req);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('country-codes')
   async getCountryCodes(@Req() req) {
-    return this.authService.getCountryCodes(req);
+    return await this.authService.getCountryCodes(req);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('send-vertify-email')
+  async sendVertifyEmail(@Body() dto: SendTestDto, @Req() req: Request) {
+    return await this.authService.sendVertifyEmail(dto, req);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('check-vertify-email')
+  async checkVertifyEmail(@Body() dto, @Req() req: Request) {
+    return await this.authService.checkVertifyEmail(dto, req);
   }
 }
