@@ -3,8 +3,10 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  OneToMany,
 } from 'typeorm';
 import type { Request as _Request } from 'express';
+import { AuthUserLoginLog } from './auth-user-login-log.entity';
 
 export interface Request extends _Request {
   user?: AuthUser;
@@ -24,20 +26,32 @@ export class AuthUser {
   @Column({ type: 'varchar', length: 50 })
   name: string;
 
-  @Column({ unique: true, type: 'varchar', length: 254, nullable: true })
+  @Column({ unique: true, type: 'varchar', length: 50, nullable: true })
   email: string | null;
 
   @Column({ type: 'varchar', length: 6, nullable: true })
-  emailVertifyCode: string | null;
+  emailVerifyCode: string | null;
 
-  @Column({ unique: true, type: 'varchar', length: 20, nullable: true })
+  @Column({ unique: true, type: 'varchar', length: 30, nullable: true })
   mobile: string | null;
+
+  @Column({ unique: true, type: 'varchar', length: 50, nullable: true })
+  telegram: string | null;
+
+  @Column({ unique: true, type: 'varchar', length: 50, nullable: true })
+  google: string | null;
 
   @Column({ type: 'varchar', length: 4, default: '1' })
   vipLevel: string;
 
   @Column({ type: 'varchar', length: 3, default: '0', nullable: true })
   vipProgress: string | null;
+
+  @OneToMany(() => AuthUserLoginLog, 'user')
+  loginLogs: AuthUserLoginLog[];
+
+  @Column({ type: 'int', default: 0 })
+  tokenVersion: number;
 
   @CreateDateColumn()
   createdAt: Date;

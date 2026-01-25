@@ -1,3 +1,4 @@
+import requestIp from 'request-ip';
 import {
   Injectable,
   UnauthorizedException,
@@ -20,8 +21,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import { randomInt } from 'crypto';
-import { SendTestDto } from './dto/send-email-vertify.dto';
+import { SendEmailVerifyDto } from './dto/send-email-verify.dto';
 import { Request } from './entities/auth-user.entity';
+import { TimeService } from 'src/time/time.service';
+import { AuthUserLoginLog } from './entities/auth-user-login-log.entity';
+import ENUMS from 'src/enum';
 
 export interface CountryCallingCodeItem {
   country: string; // ISO 3166-1 alpha-2 (e.g. "TW")
@@ -37,59 +41,131 @@ export class AuthService {
   constructor(
     @InjectRepository(AuthUser)
     private readonly userRep: Repository<AuthUser>,
-    private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly timeSv: TimeService,
+    private readonly jwtSv: JwtService,
   ) {
-    const apiKey = this.config.get<string>('RESEND_API_KEY') || '';
-    console.log(apiKey, 'apiKey');
-
-    this.resend = new Resend(apiKey);
+    this.resend = new Resend(this.config.get<string>('RESEND_API_KEY') || '');
   }
 
   async register(account: string, password: string, name: string) {
-    // 1️⃣ 檢查帳號是否存在
+    // 檢查帳號是否存在
     const exists = await this.userRep.findOne({ where: { account } });
     if (exists) {
       throw new HttpException('帳號已存在', HttpStatus.BAD_REQUEST);
     }
 
-    // 2️⃣ 密碼加密
+    // 密碼加密
     const hash = await bcrypt.hash(password, 10);
 
-    // 3️⃣ 建立使用者
-    const user = this.userRep.create({
-      account,
-      password: hash,
-      name,
-    });
-
+    // 建立使用者
+    const user = this.userRep.create({ account, password: hash, name });
     await this.userRep.save(user);
 
-    // 4️⃣ 簽發 JWT
+    // 簽發 JWT
     const payload = { sub: user.id, account: user.account };
-    const token = await this.jwtService.signAsync(payload);
+    const token = await this.jwtSv.signAsync(payload);
 
-    // 5️⃣ 回傳（對齊前端 useHttp after middleware）
+    // 回傳（對齊前端 useHttp after middleware）
     return {
       token,
       user: { id: user.id, name: user.name },
     };
   }
 
-  async login(account: string, password: string) {
+  async login(account: string, password: string, req: Request) {
     const user = await this.userRep.findOne({ where: { account } });
     if (!user) throw new UnauthorizedException('帳號或密碼錯誤');
+
     const match = await bcrypt.compare(password, user.password);
     if (!match) throw new UnauthorizedException('帳號或密碼錯誤');
-    const { password: userPassword, ...payload } = user;
-    const token = this.jwtService.sign(payload);
-    return { token, ...payload };
+
+    const logData = {
+      ip: requestIp.getClientIp(req) || '',
+      device: (req.headers['user-agent'] as string) || 'unknown',
+      lastUse: this.timeSv.nowDate(),
+    };
+
+    const { password: _password, ...freshUser } =
+      await this.userRep.manager.transaction(async (manager) => {
+        /**
+         * transaction + manager.getRepository(...) 的特色 / 好處
+         *
+         * 1) 原子性（Atomic）
+         *    - 這一包操作「要嘛全部成功、要嘛全部回滾」
+         *    - 例：
+         *      - tokenVersion + 1 成功
+         *      - 但 insert login log 失敗
+         *      => 整包 rollback，tokenVersion 不會被改（避免資料半套）
+         *
+         * 2) 一致性（Consistent）
+         *    - 同一個交易中查到/更新到的資料屬於同一個時間點（同一份一致視圖）
+         *    - 不容易出現 race condition（例如同帳號同時兩次登入互踩）
+         *
+         * 3) 同一個連線 / 同一個 manager
+         *    - transaction 裡拿到的 repository 都掛在同一個 EntityManager / connection 上
+         *    - 你的更新、查詢、insert 都是在同一條 DB 連線的交易內完成 **/
+
+        const userRepo = manager.getRepository(AuthUser);
+        const loginLogRepo = manager.getRepository(AuthUserLoginLog);
+
+        await userRepo.increment({ id: user.id }, 'tokenVersion', 1);
+
+        const freshUser = await userRepo.findOneOrFail({
+          where: { id: user.id },
+        });
+
+        const lastLogin = await loginLogRepo.findOne({
+          where: { userId: user.id, action: 'LOGIN' },
+          order: { lastUse: 'DESC' },
+        });
+
+        if (lastLogin) {
+          await loginLogRepo.update(
+            { id: lastLogin.id },
+            { action: 'LOGOUT', lastUse: logData.lastUse },
+          );
+        }
+
+        await loginLogRepo.insert({
+          userId: user.id,
+          device: logData.device,
+          ip: logData.ip,
+          lastUse: logData.lastUse,
+          action: 'LOGIN',
+        });
+
+        return freshUser;
+      });
+
+    const token = this.jwtSv.sign({
+      sub: freshUser.id,
+      account: freshUser.account,
+      tokenVersion: freshUser.tokenVersion,
+    });
+
+    return { token, user: freshUser };
   }
 
-  async getUserDetail(req) {
+  async getUserDetail(query, req) {
+    const searchLoginLog = (query?.RELATED || []).includes(query.RELATED);
+
     const user = await this.userRep.findOne({
       where: { account: req.user.account },
+      relations: { loginLogs: searchLoginLog },
     });
+
+    if (user && searchLoginLog) {
+      const loginLogs = await this.userRep.manager
+        .getRepository(AuthUserLoginLog)
+        .find({
+          where: { userId: user.id },
+          order: { lastUse: 'DESC' },
+          take: 20,
+        });
+
+      return { ...user, loginLogs };
+    }
 
     return user;
   }
@@ -159,7 +235,7 @@ export class AuthService {
     }
   }
 
-  async sendVertifyEmail(dto: SendTestDto, req: Request) {
+  async sendVerifyEmail(dto: SendEmailVerifyDto, req: Request) {
     const { email, subject = 'C9邀請您驗證信箱' } = dto;
 
     const existed = await this.userRep.findOne({
@@ -187,23 +263,23 @@ export class AuthService {
 
     this.userRep.update(
       { account: req.user?.account },
-      { emailVertifyCode: code },
+      { emailVerifyCode: code },
     );
 
     if (error) throw new Error(`Resend error: ${error.message}`);
     return data;
   }
 
-  async checkVertifyEmail(dto, req: Request) {
+  async checkVerifyEmail(dto, req: Request) {
     const user = await this.userRep.findOne({
       where: { account: req.user?.account },
     });
 
-    if (!user?.emailVertifyCode) {
+    if (!user?.emailVerifyCode) {
       throw new HttpException('查無驗證資訊', HttpStatus.BAD_REQUEST);
     }
 
-    if (dto.code !== user.emailVertifyCode) {
+    if (dto.code !== user.emailVerifyCode) {
       throw new HttpException('驗證碼錯誤', HttpStatus.BAD_REQUEST);
     }
 

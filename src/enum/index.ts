@@ -1,7 +1,7 @@
-import { game } from './game';
+import { AUTH_ENUM } from './auth';
 
-export const enums = {
-  game,
+export const ENUMS = {
+  AUTH_ENUM,
 } as const;
 
-export default enums;
+export default ENUMS;

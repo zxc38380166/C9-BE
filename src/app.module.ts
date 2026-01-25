@@ -9,31 +9,25 @@ import { JwtStrategy } from './modules/auth/strategies/jwt.strategy';
 import { AuthUser } from './modules/auth/entities/auth-user.entity';
 import { GameModule } from './modules/game/game.module';
 import { CommonModule } from './modules/common/common.module';
+import { AuthUserLoginLog } from './modules/auth/entities/auth-user-login-log.entity';
+import { TimeModule } from './time/time.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AuthUser]),
+    TypeOrmModule.forFeature([AuthUser, AuthUserLoginLog]),
     // env
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
-
+    ConfigModule.forRoot({ isGlobal: true }),
     // MySQL
-    TypeOrmModule.forRootAsync({
-      useFactory: typeOrmConfig,
-    }),
-
+    TypeOrmModule.forRootAsync({ useFactory: typeOrmConfig }),
+    // JWT
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'c9-secret',
       signOptions: { expiresIn: '7d' },
     }),
-
-    // modules
     AuthModule,
-
     GameModule,
-
     CommonModule,
+    TimeModule,
   ],
   providers: [AuthService, JwtStrategy],
 })

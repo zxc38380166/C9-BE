@@ -13,14 +13,13 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import * as cookieParser from 'cookie-parser';
-import { SendTestDto } from './dto/send-email-vertify.dto';
+import { SendEmailVerifyDto } from './dto/send-email-verify.dto';
 import type { Request } from './entities/auth-user.entity';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  /* 註冊 */
   @Post('register')
   async register(
     @Body() body: RegisterDto,
@@ -34,22 +33,15 @@ export class AuthController {
     );
   }
 
-  /* 登入 */
   @Post('login')
-  async login(
-    @Body() body: LoginDto,
-    @Query('lang') lang: string,
-    @Query('device') device: string,
-    @Headers('x-app') app: string,
-  ) {
-    return await this.authService.login(body.account, body.password);
+  async login(@Body() body: LoginDto, @Req() req) {
+    return await this.authService.login(body.account, body.password, req);
   }
 
-  /* JWT 驗證測試 */
   @UseGuards(JwtAuthGuard)
   @Get('user-detail')
-  async getUserDetail(@Req() req) {
-    return await this.authService.getUserDetail(req);
+  async getUserDetail(@Query() query, @Req() req) {
+    return await this.authService.getUserDetail(query, req);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -59,14 +51,14 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('send-vertify-email')
-  async sendVertifyEmail(@Body() dto: SendTestDto, @Req() req: Request) {
-    return await this.authService.sendVertifyEmail(dto, req);
+  @Post('send-verify-email')
+  async sendVerifyEmail(@Body() dto: SendEmailVerifyDto, @Req() req: Request) {
+    return await this.authService.sendVerifyEmail(dto, req);
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('check-vertify-email')
-  async checkVertifyEmail(@Body() dto, @Req() req: Request) {
-    return await this.authService.checkVertifyEmail(dto, req);
+  @Post('check-verify-email')
+  async checkVerifyEmail(@Body() dto, @Req() req: Request) {
+    return await this.authService.checkVerifyEmail(dto, req);
   }
 }

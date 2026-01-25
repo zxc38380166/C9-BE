@@ -3,6 +3,7 @@ import {
   Catch,
   ExceptionFilter,
   HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 
 @Catch()
@@ -12,25 +13,27 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const res = ctx.getResponse();
     const req = ctx.getRequest();
 
-    // ✅ 不管什麼錯誤都固定 HTTP status = 200
-    res.status(200);
-
-    // HttpException 會有 response/status，其他錯誤沒有
     const isHttp = exception instanceof HttpException;
-    const status = isHttp ? exception.getStatus() : 500;
+    const status = isHttp
+      ? exception.getStatus()
+      : HttpStatus.INTERNAL_SERVER_ERROR;
 
     const raw: any = isHttp ? exception.getResponse() : null;
 
-    // 你也可以自己定義 errorCode mapping
-    const code = isHttp ? status : 500;
-
+    const code = isHttp ? status : HttpStatus.INTERNAL_SERVER_ERROR;
     const message =
       typeof raw === 'string'
         ? raw
         : raw?.message || exception?.message || 'Internal Server Error';
 
-    res.json({
-      code, // 例如 400/401/500... 或自訂
+    // 只有 401 回真正 HTTP 401，其它維持 200
+    const httpStatus =
+      status === HttpStatus.UNAUTHORIZED
+        ? HttpStatus.UNAUTHORIZED
+        : HttpStatus.OK;
+
+    res.status(httpStatus).json({
+      code,
       message,
       data: null,
       timestamp: Date.now(),
