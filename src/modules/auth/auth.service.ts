@@ -49,28 +49,27 @@ export class AuthService {
   }
 
   async register(account: string, password: string, name: string) {
-    // 檢查帳號是否存在
     const exists = await this.userRep.findOne({ where: { account } });
-    if (exists) {
-      throw new HttpException('帳號已存在', HttpStatus.BAD_REQUEST);
-    }
+    if (exists) throw new HttpException('帳號已存在', HttpStatus.BAD_REQUEST);
 
-    // 密碼加密
     const hash = await bcrypt.hash(password, 10);
 
-    // 建立使用者
-    const user = this.userRep.create({ account, password: hash, name });
-    await this.userRep.save(user);
+    const user = this.userRep.create({
+      account,
+      password: hash,
+      name,
+      tokenVersion: 0,
+    });
 
-    // 簽發 JWT
-    const payload = { sub: user.id, account: user.account };
-    const token = await this.jwtSv.signAsync(payload);
+    const saved = await this.userRep.save(user);
 
-    // 回傳（對齊前端 useHttp after middleware）
-    return {
-      token,
-      user: { id: user.id, name: user.name },
-    };
+    const token = await this.jwtSv.signAsync({
+      sub: saved.id,
+      account: saved.account,
+      tokenVersion: saved.tokenVersion ?? 0,
+    });
+
+    return { token, user: { id: saved.id, name: saved.name } };
   }
 
   async login(account: string, password: string, req: Request) {
@@ -280,7 +279,10 @@ export class AuthService {
     }
 
     if (dto.code !== user.emailVerifyCode) {
-      throw new HttpException('驗證碼錯誤', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        { code: 2001, message: '驗證碼錯誤' },
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     this.userRep.update({ account: req.user?.account }, { email: dto.email });

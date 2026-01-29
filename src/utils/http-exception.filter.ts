@@ -20,7 +20,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const raw: any = isHttp ? exception.getResponse() : null;
 
-    const code = isHttp ? status : HttpStatus.INTERNAL_SERVER_ERROR;
+    const code =
+      typeof raw === 'object' && raw?.code != null ? Number(raw.code) : status;
+
     const message =
       typeof raw === 'string'
         ? raw
