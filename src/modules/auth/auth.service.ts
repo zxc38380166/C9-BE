@@ -357,4 +357,38 @@ export class AuthService {
       { googleAuthEnabled: 1 },
     );
   }
+
+  async editPassword(dto, req: Request) {
+    const { password, newPassword, confirmPassword } = dto;
+
+    const user = await this.userRep.findOne({
+      where: { account: req.user?.account },
+    });
+
+    const isPasswordCorrect = await bcrypt.compare(
+      password,
+      user?.password || '',
+    );
+
+    if (!isPasswordCorrect) {
+      throw new HttpException(
+        { code: 2002, message: this.i18n.t('auth.editPassword.2002') },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (newPassword !== confirmPassword) {
+      throw new HttpException(
+        { code: 2002, message: this.i18n.t('auth.editPassword.2002') },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+    return await this.userRep.update(
+      { account: req.user?.account },
+      { password: newPasswordHash },
+    );
+  }
 }

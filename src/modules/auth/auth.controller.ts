@@ -73,4 +73,10 @@ export class AuthController {
   async enableGoogle(@Body() dto, @Req() req: Request) {
     return this.authService.enableGoogle(dto, req);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('edit-password')
+  async editPassword(@Body() dto, @Req() req: Request) {
+    return this.authService.editPassword(dto, req);
+  }
 }
