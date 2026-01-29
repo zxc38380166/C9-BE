@@ -47,6 +47,12 @@ export class AuthUser {
   @Column({ type: 'varchar', length: 3, default: '0', nullable: true })
   vipProgress: string | null;
 
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  googleAuthSecret?: string | null;
+
+  @Column({ type: 'tinyint', width: 1, default: () => 0 })
+  googleAuthEnabled?: number;
+
   @OneToMany(() => AuthUserLoginLog, 'user')
   loginLogs: AuthUserLoginLog[];
 

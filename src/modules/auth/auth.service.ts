@@ -26,6 +26,9 @@ import { Request } from './entities/auth-user.entity';
 import { TimeService } from 'src/time/time.service';
 import { AuthUserLoginLog } from './entities/auth-user-login-log.entity';
 import ENUMS from 'src/enum';
+import { I18nContext, I18nService } from 'nestjs-i18n';
+import * as speakeasy from 'speakeasy';
+import * as QRCode from 'qrcode';
 
 export interface CountryCallingCodeItem {
   country: string; // ISO 3166-1 alpha-2 (e.g. "TW")
@@ -44,6 +47,7 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly timeSv: TimeService,
     private readonly jwtSv: JwtService,
+    private readonly i18n: I18nService,
   ) {
     this.resend = new Resend(this.config.get<string>('RESEND_API_KEY') || '');
   }
@@ -275,16 +279,82 @@ export class AuthService {
     });
 
     if (!user?.emailVerifyCode) {
-      throw new HttpException('查無驗證資訊', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        { code: 2001, message: this.i18n.t('auth.checkVerifyEmail.2001') },
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     if (dto.code !== user.emailVerifyCode) {
       throw new HttpException(
-        { code: 2001, message: '驗證碼錯誤' },
+        { code: 2002, message: this.i18n.t('auth.checkVerifyEmail.2002') },
         HttpStatus.BAD_REQUEST,
       );
     }
 
     this.userRep.update({ account: req.user?.account }, { email: dto.email });
+  }
+
+  async generateGoogle(req: Request) {
+    const user = await this.userRep.findOne({
+      where: { account: req.user?.account },
+    });
+
+    const secret = speakeasy.generateSecret({
+      length: 20,
+      name: `${process.env.APP_NAME}-${user?.account}`,
+    });
+
+    await this.userRep.update(
+      { account: user?.account },
+      {
+        googleAuthSecret: secret.base32,
+        googleAuthEnabled: 0,
+      },
+    );
+
+    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
+
+    return {
+      secret: secret.base32,
+      qrCode: qrCodeUrl,
+    };
+  }
+
+  async verifyGoogleAuth(token: string, secret: string) {
+    return speakeasy.totp.verify({
+      secret,
+      encoding: 'base32',
+      token,
+      window: 1,
+    });
+  }
+
+  async enableGoogle(dto, req: Request) {
+    const { code } = dto;
+
+    const user = await this.userRep.findOne({
+      where: { account: req.user?.account },
+    });
+
+    if (!user || !user.googleAuthSecret) {
+      throw new HttpException(
+        { code: 2001, message: this.i18n.t('auth.enableGoogle.2001') },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const isValid = await this.verifyGoogleAuth(code, user.googleAuthSecret);
+    if (!isValid) {
+      throw new HttpException(
+        { code: 2002, message: this.i18n.t('auth.enableGoogle.2002') },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return await this.userRep.update(
+      { account: user.account },
+      { googleAuthEnabled: 1 },
+    );
   }
 }

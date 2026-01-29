@@ -36,12 +36,15 @@
     "libphonenumber-js": "^1.12.35",
     "moment-timezone": "^0.6.0",
     "mysql2": "^3.16.0",
+    "nestjs-i18n": "^10.6.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "request-ip": "^3.3.0",
     "resend": "^6.8.0",
     "rxjs": "^7.8.1",
+    "speakeasy": "^2.0.0",
     "typeorm": "^0.3.28"
   },
   "devDependencies": {

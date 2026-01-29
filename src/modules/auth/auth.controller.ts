@@ -61,4 +61,16 @@ export class AuthController {
   async checkVerifyEmail(@Body() dto, @Req() req: Request) {
     return await this.authService.checkVerifyEmail(dto, req);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('generate-google')
+  async generateGoogle(@Req() req: Request) {
+    return this.authService.generateGoogle(req);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('enable-google')
+  async enableGoogle(@Body() dto, @Req() req: Request) {
+    return this.authService.enableGoogle(dto, req);
+  }
 }

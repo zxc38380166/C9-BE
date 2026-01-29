@@ -11,6 +11,12 @@ import { GameModule } from './modules/game/game.module';
 import { CommonModule } from './modules/common/common.module';
 import { AuthUserLoginLog } from './modules/auth/entities/auth-user-login-log.entity';
 import { TimeModule } from './time/time.module';
+import * as path from 'path';
+import {
+  AcceptLanguageResolver,
+  HeaderResolver,
+  I18nModule,
+} from 'nestjs-i18n';
 
 @Module({
   imports: [
@@ -23,6 +29,17 @@ import { TimeModule } from './time/time.module';
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'c9-secret',
       signOptions: { expiresIn: '7d' },
+    }),
+    I18nModule.forRoot({
+      fallbackLanguage: 'zh-TW',
+      loaderOptions: {
+        path: path.join(__dirname, '../i18n'),
+        watch: process.env.NODE_ENV === 'development',
+      },
+      resolvers: [
+        new HeaderResolver(['locales']),
+        new AcceptLanguageResolver(),
+      ],
     }),
     AuthModule,
     GameModule,
