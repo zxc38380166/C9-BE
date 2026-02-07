@@ -16,11 +16,11 @@ export class GameProvider {
   @Column({ type: 'int' })
   gameType: number;
 
-  @Column({ type: 'text' })
-  gameKey: string;
+  @Column({ type: 'tinyint', width: 1, default: 0 })
+  areaBlock: boolean;
 
   @Column({ type: 'tinyint', width: 1, default: 0 })
-  regionalOpen: boolean;
+  maintain: boolean;
 
   @Column({ type: 'tinyint', width: 1, default: 1 })
   enable: boolean;
