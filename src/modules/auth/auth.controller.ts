@@ -86,7 +86,6 @@ export class AuthController {
     return await this.authService.getLoginConfig(redirect);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('login-google')
   async loginGoogle(@Body() dto: LoginGoogleDto, @Req() req: Request) {
     return await this.authService.loginGoogle(dto, req);

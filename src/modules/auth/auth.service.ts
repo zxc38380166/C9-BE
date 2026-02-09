@@ -491,7 +491,7 @@ export class AuthService {
     const [stateBody, stateSig] = String(state || '').split('.');
     if (!stateBody || !stateSig) {
       throw new HttpException(
-        { code: 2002, message: this.i18n.t('auth.loginGoogle.2002') },
+        { code: 2001, message: this.i18n.t('auth.loginGoogle.2002') },
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -515,7 +515,7 @@ export class AuthService {
       );
     } catch {
       throw new HttpException(
-        { code: 2002, message: this.i18n.t('auth.loginGoogle.2002') },
+        { code: 2003, message: this.i18n.t('auth.loginGoogle.2002') },
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -526,7 +526,7 @@ export class AuthService {
       Date.now() - Number(statePayload.iat) > 10 * 60 * 1000
     ) {
       throw new HttpException(
-        { code: 2002, message: 'State expired' },
+        { code: 2004, message: 'State expired' },
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -534,7 +534,7 @@ export class AuthService {
     const codeVerifier = String(statePayload?.cv || '');
     if (!codeVerifier) {
       throw new HttpException(
-        { code: 2002, message: this.i18n.t('auth.loginGoogle.2002') },
+        { code: 2005, message: this.i18n.t('auth.loginGoogle.2002') },
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -565,9 +565,10 @@ export class AuthService {
       tokenResp.status >= 300 ||
       !tokenJson?.id_token
     ) {
+      console.log(tokenResp, 'tokenResp');
       throw new HttpException(
         {
-          code: 2002,
+          code: 2006,
           message:
             tokenJson?.error_description ||
             tokenJson?.error ||
@@ -588,7 +589,7 @@ export class AuthService {
       });
     } catch {
       throw new HttpException(
-        { code: 2003, message: this.i18n.t('auth.loginGoogle.2003') },
+        { code: 2007, message: this.i18n.t('auth.loginGoogle.2003') },
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -596,7 +597,7 @@ export class AuthService {
     const payload = ticket.getPayload();
     if (!payload?.sub) {
       throw new HttpException(
-        { code: 2003, message: this.i18n.t('auth.loginGoogle.2003') },
+        { code: 2008, message: this.i18n.t('auth.loginGoogle.2003') },
         HttpStatus.BAD_REQUEST,
       );
     }
