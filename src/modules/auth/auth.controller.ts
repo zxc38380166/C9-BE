@@ -15,6 +15,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import * as cookieParser from 'cookie-parser';
 import { SendEmailVerifyDto } from './dto/send-email-verify.dto';
 import type { Request } from './entities/auth-user.entity';
+import { LoginGoogleDto } from './dto/login-google';
 
 @Controller('auth')
 export class AuthController {
@@ -69,14 +70,25 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('enable-google')
-  async enableGoogle(@Body() dto, @Req() req: Request) {
-    return this.authService.enableGoogle(dto, req);
+  @Post('enable-google-auth')
+  async enableGoogleAuth(@Body() dto, @Req() req: Request) {
+    return this.authService.enableGoogleAuth(dto, req);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('edit-password')
   async editPassword(@Body() dto, @Req() req: Request) {
     return this.authService.editPassword(dto, req);
+  }
+
+  @Get('login-config')
+  async getLoginConfig(@Query('redirect') redirect?: string) {
+    return await this.authService.getLoginConfig(redirect);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('login-google')
+  async loginGoogle(@Body() dto: LoginGoogleDto, @Req() req: Request) {
+    return await this.authService.loginGoogle(dto, req);
   }
 }

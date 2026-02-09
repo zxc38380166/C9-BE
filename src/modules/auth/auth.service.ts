@@ -29,6 +29,9 @@ import ENUMS from 'src/enum';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import * as speakeasy from 'speakeasy';
 import * as QRCode from 'qrcode';
+import { OAuth2Client } from 'google-auth-library';
+import { LoginGoogleDto } from './dto/login-google';
+import axios from 'axios';
 
 export interface CountryCallingCodeItem {
   country: string; // ISO 3166-1 alpha-2 (e.g. "TW")
@@ -39,6 +42,7 @@ export interface CountryCallingCodeItem {
 @Injectable()
 export class AuthService {
   private readonly resend: Resend;
+  private googleClient: OAuth2Client;
   private cache = new Map<string, CountryCallingCodeItem[]>();
 
   constructor(
@@ -50,6 +54,9 @@ export class AuthService {
     private readonly i18n: I18nService,
   ) {
     this.resend = new Resend(this.config.get<string>('RESEND_API_KEY') || '');
+    this.googleClient = new OAuth2Client(
+      this.config.get<string>('GOOGLE_CLIENT_ID'),
+    );
   }
 
   async register(account: string, password: string, name: string) {
@@ -330,7 +337,7 @@ export class AuthService {
     });
   }
 
-  async enableGoogle(dto, req: Request) {
+  async enableGoogleAuth(dto, req: Request) {
     const { code } = dto;
 
     const user = await this.userRep.findOne({
@@ -339,7 +346,7 @@ export class AuthService {
 
     if (!user || !user.googleAuthSecret) {
       throw new HttpException(
-        { code: 2001, message: this.i18n.t('auth.enableGoogle.2001') },
+        { code: 2001, message: this.i18n.t('auth.enableGoogleAuth.2001') },
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -347,7 +354,7 @@ export class AuthService {
     const isValid = await this.verifyGoogleAuth(code, user.googleAuthSecret);
     if (!isValid) {
       throw new HttpException(
-        { code: 2002, message: this.i18n.t('auth.enableGoogle.2002') },
+        { code: 2002, message: this.i18n.t('auth.enableGoogleAuth.2002') },
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -390,5 +397,247 @@ export class AuthService {
       { account: req.user?.account },
       { password: newPasswordHash },
     );
+  }
+
+  async getLoginConfig(redirect?: string) {
+    const clientId = this.config.get<string>('GOOGLE_CLIENT_ID') || '';
+    const redirectUri = this.config.get<string>('GOOGLE_REDIRECT_URI') || '';
+    const stateSecret = this.config.get<string>('JWT_SECRET') || '';
+
+    if (!clientId || !redirectUri || !stateSecret) {
+      throw new HttpException(
+        { code: 2001, message: 'Missing google oauth config' },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const base64url = (buf: Buffer) =>
+      buf
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/g, '');
+
+    const sha256Base64url = (input: string) => {
+      const h = require('crypto').createHash('sha256').update(input).digest();
+      return base64url(h);
+    };
+
+    const randomBase64url = (bytes = 32) => {
+      const b = require('crypto').randomBytes(bytes);
+      return base64url(b);
+    };
+
+    // PKCE
+    const codeVerifier = randomBase64url(64);
+    const codeChallenge = sha256Base64url(codeVerifier);
+
+    // redirectAfter：只允許站內相對路徑，避免 open redirect
+    const redirectAfter =
+      typeof redirect === 'string' && redirect.startsWith('/') ? redirect : '/';
+
+    const statePayload = {
+      v: 1,
+      n: randomBase64url(16),
+      cv: codeVerifier,
+      ra: redirectAfter,
+      iat: Date.now(),
+    };
+
+    const stateBody = Buffer.from(JSON.stringify(statePayload)).toString(
+      'base64url',
+    );
+    const stateSig = require('crypto')
+      .createHmac('sha256', stateSecret)
+      .update(stateBody)
+      .digest('base64url');
+    const state = `${stateBody}.${stateSig}`;
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: 'openid email profile',
+      state,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+      access_type: 'offline',
+      prompt: 'consent',
+    });
+
+    const googleUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+
+    return {
+      google: googleUrl,
+    };
+  }
+
+  async loginGoogle(dto: LoginGoogleDto, req: Request) {
+    const { code, state } = dto;
+
+    const clientId = this.config.get<string>('GOOGLE_CLIENT_ID') || '';
+    const clientSecret = this.config.get<string>('GOOGLE_CLIENT_SECRET') || '';
+    const redirectUri = this.config.get<string>('GOOGLE_REDIRECT_URI') || '';
+    const stateSecret = this.config.get<string>('JWT_SECRET') || '';
+
+    if (!clientId || !clientSecret || !redirectUri || !stateSecret) {
+      throw new HttpException(
+        { code: 2001, message: this.i18n.t('auth.loginGoogle.2001') },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // 1) 驗 state（解析 + 驗簽）
+    const [stateBody, stateSig] = String(state || '').split('.');
+    if (!stateBody || !stateSig) {
+      throw new HttpException(
+        { code: 2002, message: this.i18n.t('auth.loginGoogle.2002') },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const expectedSig = require('crypto')
+      .createHmac('sha256', stateSecret)
+      .update(stateBody)
+      .digest('base64url');
+
+    if (expectedSig !== stateSig) {
+      throw new HttpException(
+        { code: 2002, message: this.i18n.t('auth.loginGoogle.2002') },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    let statePayload: any = null;
+    try {
+      statePayload = JSON.parse(
+        Buffer.from(stateBody, 'base64url').toString('utf8'),
+      );
+    } catch {
+      throw new HttpException(
+        { code: 2002, message: this.i18n.t('auth.loginGoogle.2002') },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // 可選：state 過期（10 分鐘）
+    if (
+      !statePayload?.iat ||
+      Date.now() - Number(statePayload.iat) > 10 * 60 * 1000
+    ) {
+      throw new HttpException(
+        { code: 2002, message: 'State expired' },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const codeVerifier = String(statePayload?.cv || '');
+    if (!codeVerifier) {
+      throw new HttpException(
+        { code: 2002, message: this.i18n.t('auth.loginGoogle.2002') },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // 2) 用 axios 換 token（這裡把原 fetch 改成 axios）
+    const body = new URLSearchParams({
+      code: String(code || ''),
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code',
+      code_verifier: codeVerifier,
+    }).toString();
+
+    const tokenResp = await axios.post(
+      'https://oauth2.googleapis.com/token',
+      body,
+      {
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        validateStatus: () => true, // 我們自己判斷 status
+      },
+    );
+
+    const tokenJson: any = tokenResp.data;
+
+    if (
+      tokenResp.status < 200 ||
+      tokenResp.status >= 300 ||
+      !tokenJson?.id_token
+    ) {
+      throw new HttpException(
+        {
+          code: 2002,
+          message:
+            tokenJson?.error_description ||
+            tokenJson?.error ||
+            this.i18n.t('auth.loginGoogle.2002'),
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const idToken = tokenJson.id_token as string;
+
+    // 3) 驗 id_token（用你已經有的 googleClient）
+    let ticket;
+    try {
+      ticket = await this.googleClient.verifyIdToken({
+        idToken,
+        audience: clientId,
+      });
+    } catch {
+      throw new HttpException(
+        { code: 2003, message: this.i18n.t('auth.loginGoogle.2003') },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const payload = ticket.getPayload();
+    if (!payload?.sub) {
+      throw new HttpException(
+        { code: 2003, message: this.i18n.t('auth.loginGoogle.2003') },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // 4) 會員綁定/註冊（示範）
+    const email = payload.email || '';
+    const name = payload.name || '';
+    const picture = payload.picture || '';
+
+    let user = email
+      ? await this.userRep.findOne({ where: { account: email } })
+      : null;
+
+    if (!user) {
+      user = this.userRep.create({
+        account: email || `google_${payload.sub}`,
+        password: '',
+        name: name || 'Google User',
+        tokenVersion: 0,
+      });
+
+      user = await this.userRep.save(user);
+    }
+
+    // 5) 簽你自己的 JWT
+    const token = this.jwtSv.sign({
+      sub: user.id,
+      account: user.account,
+      tokenVersion: user.tokenVersion ?? 0,
+    });
+
+    return {
+      token,
+      user,
+      redirectAfter: statePayload?.ra || '/',
+      google: {
+        access_token: tokenJson?.access_token,
+        refresh_token: tokenJson?.refresh_token,
+        expires_in: tokenJson?.expires_in,
+        scope: tokenJson?.scope,
+      },
+    };
   }
 }
