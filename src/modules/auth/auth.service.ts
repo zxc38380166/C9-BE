@@ -29,7 +29,7 @@ import ENUMS from 'src/enum';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import * as speakeasy from 'speakeasy';
 import * as QRCode from 'qrcode';
-import { OAuth2Client } from 'google-auth-library';
+import { LoginTicket, OAuth2Client } from 'google-auth-library';
 import { LoginGoogleDto } from './dto/login-google';
 import axios from 'axios';
 
@@ -578,7 +578,7 @@ export class AuthService {
 
     const idToken = tokenJson.id_token as string;
 
-    let ticket;
+    let ticket: LoginTicket;
     try {
       ticket = await this.googleClient.verifyIdToken({
         idToken,
@@ -603,13 +603,16 @@ export class AuthService {
     const name = payload.name || '';
     const account = `google_${payload.sub}`;
     let user = email ? await this.userRep.findOne({ where: { email } }) : null;
-    if (!user) {
+    const tokenVersion = user ? user.tokenVersion : 0;
+    if (user) {
+      this.userRep.update({ email }, { tokenVersion });
+    } else {
       user = this.userRep.create({
-        account,
+        name,
         email,
+        account,
         password: '',
-        name: name || '',
-        tokenVersion: 0,
+        tokenVersion,
       });
 
       user = await this.userRep.save(user);
@@ -618,17 +621,12 @@ export class AuthService {
     const token = this.jwtSv.sign({
       sub: user.id,
       account: user.account,
-      tokenVersion: user.tokenVersion ? user.tokenVersion + 1 : 0,
+      tokenVersion,
     });
 
     console.log(ticket, 'ticket');
     console.log(tokenJson, 'tokenJson');
     console.log(payload, 'payload');
-
-    return {
-      token,
-      user,
-      google: { ...tokenJson, ...payload },
-    };
+    return { token, user, google: { ...tokenJson, ...payload } };
   }
 }
