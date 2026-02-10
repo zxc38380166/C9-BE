@@ -602,11 +602,7 @@ export class AuthService {
     const email = payload.email || '';
     const name = payload.name || '';
     const account = `google_${payload.sub}`;
-
-    let user = email
-      ? await this.userRep.findOne({ where: { account } })
-      : null;
-
+    let user = email ? await this.userRep.findOne({ where: { email } }) : null;
     if (!user) {
       user = this.userRep.create({
         account,
