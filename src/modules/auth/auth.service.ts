@@ -399,7 +399,7 @@ export class AuthService {
     );
   }
 
-  async getLoginConfig(redirect?: string) {
+  async getLoginConfig() {
     const clientId = this.config.get<string>('GOOGLE_CLIENT_ID') || '';
     const redirectUri = this.config.get<string>('GOOGLE_REDIRECT_URI') || '';
     const stateSecret = this.config.get<string>('JWT_SECRET') || '';
@@ -433,8 +433,7 @@ export class AuthService {
     const codeChallenge = sha256Base64url(codeVerifier);
 
     // redirectAfter：只允許站內相對路徑，避免 open redirect
-    const redirectAfter =
-      typeof redirect === 'string' && redirect.startsWith('/') ? redirect : '/';
+    const redirectAfter = '/';
 
     const statePayload = {
       v: 1,
@@ -549,7 +548,7 @@ export class AuthService {
       code_verifier: codeVerifier,
     }).toString();
 
-    const tokenResp = await axios.post(
+    const tokenRes = await axios.post(
       'https://oauth2.googleapis.com/token',
       body,
       {
@@ -558,14 +557,13 @@ export class AuthService {
       },
     );
 
-    const tokenJson: any = tokenResp.data;
+    const tokenJson = tokenRes.data;
 
     if (
-      tokenResp.status < 200 ||
-      tokenResp.status >= 300 ||
+      tokenRes.status < 200 ||
+      tokenRes.status >= 300 ||
       !tokenJson?.id_token
     ) {
-      console.log(tokenResp, 'tokenResp');
       throw new HttpException(
         {
           code: 2006,
@@ -629,15 +627,17 @@ export class AuthService {
       tokenVersion: user.tokenVersion ?? 0,
     });
 
+    console.log(ticket, 'ticket');
+    console.log(tokenJson, 'tokenJson');
+    console.log(payload, 'payload');
+
     return {
       token,
       user,
       redirectAfter: statePayload?.ra || '/',
       google: {
-        access_token: tokenJson?.access_token,
-        refresh_token: tokenJson?.refresh_token,
-        expires_in: tokenJson?.expires_in,
-        scope: tokenJson?.scope,
+        ...tokenJson,
+        ...payload,
       },
     };
   }

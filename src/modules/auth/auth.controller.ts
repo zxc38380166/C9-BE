@@ -82,8 +82,8 @@ export class AuthController {
   }
 
   @Get('login-config')
-  async getLoginConfig(@Query('redirect') redirect?: string) {
-    return await this.authService.getLoginConfig(redirect);
+  async getLoginConfig() {
+    return await this.authService.getLoginConfig();
   }
 
   @Post('login-google')
