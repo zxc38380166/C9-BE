@@ -302,7 +302,7 @@ export class AuthService {
     this.userRep.update({ account: req.user?.account }, { email: dto.email });
   }
 
-  async generateGoogle(req: Request) {
+  async generateGoogleAuth(req: Request) {
     const user = await this.userRep.findOne({
       where: { account: req.user?.account },
     });
@@ -471,7 +471,7 @@ export class AuthService {
     };
   }
 
-  async loginGoogle(dto: LoginGoogleDto, req: Request) {
+  async loginGoogle(dto: LoginGoogleDto) {
     const { code, state } = dto;
 
     const clientId = this.config.get<string>('GOOGLE_CLIENT_ID') || '';
@@ -486,7 +486,7 @@ export class AuthService {
       );
     }
 
-    // 1) 驗 state（解析 + 驗簽）
+    // 驗 state（解析 + 驗簽）
     const [stateBody, stateSig] = String(state || '').split('.');
     if (!stateBody || !stateSig) {
       throw new HttpException(
@@ -538,7 +538,6 @@ export class AuthService {
       );
     }
 
-    // 2) 用 axios 換 token（這裡把原 fetch 改成 axios）
     const body = new URLSearchParams({
       code: String(code || ''),
       client_id: clientId,
@@ -553,7 +552,7 @@ export class AuthService {
       body,
       {
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        validateStatus: () => true, // 我們自己判斷 status
+        validateStatus: () => true,
       },
     );
 
@@ -578,7 +577,6 @@ export class AuthService {
 
     const idToken = tokenJson.id_token as string;
 
-    // 3) 驗 id_token（用你已經有的 googleClient）
     let ticket;
     try {
       ticket = await this.googleClient.verifyIdToken({
@@ -600,7 +598,6 @@ export class AuthService {
       );
     }
 
-    // 4) 會員綁定/註冊（示範）
     const email = payload.email || '';
     const name = payload.name || '';
     const picture = payload.picture || '';
@@ -620,7 +617,6 @@ export class AuthService {
       user = await this.userRep.save(user);
     }
 
-    // 5) 簽你自己的 JWT
     const token = this.jwtSv.sign({
       sub: user.id,
       account: user.account,

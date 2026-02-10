@@ -64,9 +64,9 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('generate-google')
-  async generateGoogle(@Req() req: Request) {
-    return this.authService.generateGoogle(req);
+  @Post('generate-google-auth')
+  async generateGoogleAuth(@Req() req: Request) {
+    return this.authService.generateGoogleAuth(req);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -87,7 +87,7 @@ export class AuthController {
   }
 
   @Post('login-google')
-  async loginGoogle(@Body() dto: LoginGoogleDto, @Req() req: Request) {
-    return await this.authService.loginGoogle(dto, req);
+  async loginGoogle(@Body() dto: LoginGoogleDto) {
+    return await this.authService.loginGoogle(dto);
   }
 }
