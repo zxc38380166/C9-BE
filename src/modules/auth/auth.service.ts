@@ -603,7 +603,8 @@ export class AuthService {
     const name = payload.name || '';
     const account = `google_${payload.sub}`;
     let user = email ? await this.userRep.findOne({ where: { email } }) : null;
-    const tokenVersion = user ? user.tokenVersion : 0;
+    const tokenVersion = user ? user.tokenVersion + 1 : 0;
+
     if (user) {
       this.userRep.update({ email }, { tokenVersion });
     } else {
